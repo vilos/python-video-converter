@@ -394,6 +394,44 @@ class FFMpeg(object):
 
         return info
 
+    def volume_detect(self, infile):
+        """
+        Examine volume statistics of input file.
+
+        >>> data = FFMpeg().volume_detect('test1.ogg')
+        >>>data['n_samples']
+        '3169152'
+        >>> data['mean_volume']
+        '-19.4 dB'
+        >>> data['max_volume']
+        '0.0 dB'
+        >>> data['histogram_0db']
+        '248'
+        """
+        if not os.path.exists(infile):
+            return None
+        opts = ['-af', 'volumedetect', '-vn', '-f', 'null', '/dev/null']
+
+        cmds = [self.ffmpeg_path, '-i', infile]
+        cmds.extend(opts)
+
+        try:
+            p = self._spawn(cmds)
+        except OSError:
+            raise FFMpegError('Error while calling ffmpeg binary')
+
+        _, stderr_data = p.communicate()
+
+        stderr_data = stderr_data.decode(console_encoding)
+        data = {}
+        for line in stderr_data.splitlines():
+            if line.startswith('[Parsed_volumedetect'):
+                _, kv = line.split(']')
+                k,v = kv.split(':')
+                data[k.strip()] = v.strip()
+        return data
+
+
     def convert(self, infile, outfile, opts, timeout=10):
         """
         Convert the source media (infile) according to specified options
