@@ -48,6 +48,26 @@ class FFMpegConvertError(Exception):
         return self.__repr__()
 
 
+class MediaTagInfo(dict):
+    """
+    Represents meta data tags included in media file
+    """
+    
+    enabled_tags = ('title', 'artist', 'album', 'genre')
+    
+    def parse_ffprobe(self, key, val):
+        """
+        Parse raw ffprobe output (key=value).
+        """
+        if key in self.enabled_tags:
+            self[key] = val
+            
+    def __repr__(self):
+        return 'MediaTagInfo(title=%s, artist=%s, album=%s)' % (self.title, 
+                                                                self.artist, 
+                                                                self.album)
+
+
 class MediaFormatInfo(object):
     """
     Describes the media container format. The attributes are:
@@ -78,7 +98,7 @@ class MediaFormatInfo(object):
         elif key == 'duration':
             self.duration = MediaStreamInfo.parse_float(val, None)
         elif key == 'size':
-            self.size = MediaStreamInfo.parse_float(val, None)
+            self.filesize = MediaStreamInfo.parse_float(val, None)
 
     def __repr__(self):
         if self.duration is None:
@@ -241,6 +261,7 @@ class MediaInfo(object):
             A video stream, defaults to True
         """
         self.format = MediaFormatInfo()
+        self.tags = MediaTagInfo()
         self.posters_as_video = posters_as_video
         self.streams = []
 
@@ -272,7 +293,11 @@ class MediaInfo(object):
                 if current_stream:
                     current_stream.parse_ffprobe(k, v)
                 elif in_format:
-                    self.format.parse_ffprobe(k, v)
+                    if k.startswith('TAG:'):
+                        k = k[4:]
+                        self.tags.parse_ffprobe(k, v)
+                    else:
+                        self.format.parse_ffprobe(k, v)
 
     def __repr__(self):
         return 'MediaInfo(format=%s, streams=%s)' % (repr(self.format),
